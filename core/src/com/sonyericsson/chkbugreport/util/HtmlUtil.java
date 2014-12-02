@@ -42,7 +42,8 @@ public final class HtmlUtil {
         sJS.add("jquery.flot.selection.js");
         sJS.add("jquery.ui.js");
         sJS.add("colResizable-1.3.source.js");
-        sJS.add("/self$wsjs");
+        //Tinno:CJ This JavaScript file is included only when using the built-in web server 
+        //sJS.add("/self$wsjs");
         sJS.add("main.js");
     }
 
