@@ -49,6 +49,7 @@ public class BatteryLevels {
     }
 
     public void addData(LogLine sl, BugReportModule br) {
+    	br.printErr(4, "@@@@ battery_level tag got from even_log:  " + sl.line);
         try {
             int level = Integer.parseInt(sl.fields[0]);
             int volt = Integer.parseInt(sl.fields[1]);

@@ -31,6 +31,9 @@ public class Section extends Lines {
     public static final String DUMP_OF_SERVICE_BATTERYINFO = "DUMP OF SERVICE batteryinfo";
     //Tinno:Shaobin add usagestats service dump section
     public static final String DUMP_OF_SERVICE_USAGESTATS = "DUMP OF SERVICE usagestats";
+    //Tinno:Shaobin add for 4.4 battery service name changed
+    public static final String DUMP_OF_SERVICE_BATTERYSTATUS = "DUMP OF SERVICE batterystats";
+    
     public static final String DUMP_OF_SERVICE_MEMINFO = "DUMP OF SERVICE meminfo";
     public static final String DUMP_OF_SERVICE_PACKAGE = "DUMP OF SERVICE package";
     public static final String DUMP_OF_SERVICE_SURFACEFLINGER = "DUMP OF SERVICE SurfaceFlinger";

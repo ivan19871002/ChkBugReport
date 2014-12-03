@@ -59,6 +59,7 @@ import com.sonyericsson.chkbugreport.util.XMLNode;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.TimeZone;
 import java.util.Vector;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -187,6 +188,12 @@ public class BatteryInfoPlugin extends Plugin {
 
     private void genBatteryInfo(BugReportModule br, Chapter ch) {
         Section sec = br.findSection(Section.DUMP_OF_SERVICE_BATTERYINFO);
+        
+        //Tinno:CJ for 4.4 battery service name changed
+        if (sec == null) {        
+        	sec = br.findSection(Section.DUMP_OF_SERVICE_BATTERYSTATUS);
+        }
+        
         if (sec == null) {
             br.printErr(3, TAG + "Section not found: " + Section.DUMP_OF_SERVICE_BATTERYINFO + " (ignoring it)");
             return;
@@ -327,7 +334,10 @@ public class BatteryInfoPlugin extends Plugin {
         Calendar cal = br.getTimestamp();
         if (cal != null) {
             // Don't forget the GMT adjustment
-            return cal.getTimeInMillis() + br.getContext().getGmtOffset() * HOUR;
+        	if (br.getContext().getGmtOffset() != 0)
+        		return (cal.getTimeInMillis() + br.getContext().getGmtOffset() * HOUR);
+        	else
+        		return (cal.getTimeInMillis() + TimeZone.getDefault().getRawOffset());
         }
 
         // If not available, use the maximum timestamp from the logs
@@ -389,7 +399,7 @@ public class BatteryInfoPlugin extends Plugin {
 
         // Prepare the kernelWakeLock table
         Chapter kernelWakeLock = new Chapter(br.getContext(), "Kernel Wake locks");
-        Pattern pKWL = Pattern.compile(".*?\"(.*?)\": (.*?) \\((.*?) times\\)");
+        Pattern pKWL = Pattern.compile(".*? (.*?): (.*?) \\((.*?) times\\)");
         Table tgKWL = new Table(Table.FLAG_SORT, kernelWakeLock);
         tgKWL.setCSVOutput(br, "battery_" + csvPrefix + "_kernel_wakelocks");
         tgKWL.setTableName(br, "battery_" + csvPrefix + "_kernel_wakelocks");
@@ -402,7 +412,7 @@ public class BatteryInfoPlugin extends Plugin {
         // Prepare the wake lock table
         Chapter wakeLock = new Chapter(br.getContext(), "Wake locks");
         new Hint(wakeLock).add("Hint: hover over the UID to see it's name.");
-        Pattern pWL = Pattern.compile("Wake lock (.*?): (.*?) ([a-z]+) \\((.*?) times\\)");
+        Pattern pWL = Pattern.compile("Wake lock (.*?): ([0-9].*?) ([a-z]+) \\((.*?) times\\)");
         Table tgWL = new Table(Table.FLAG_SORT, wakeLock);
         tgWL.setCSVOutput(br, "battery_" + csvPrefix + "_wakelocks");
         tgWL.setTableName(br, "battery_" + csvPrefix + "_wakelocks");
@@ -449,14 +459,14 @@ public class BatteryInfoPlugin extends Plugin {
         // Prepare the network traffic table
         Chapter net = new Chapter(br.getContext(), "Network traffic");
         new Hint(cpuPerUid).add("Hint: hover over the UID to see it's name.");
-        Pattern pNet = Pattern.compile("Network: (.*?) received, (.*?) sent");
+        Pattern pNet = Pattern.compile("(.*?): (.*?) received, (.*?) sent");
         Table tgNet = new Table(Table.FLAG_SORT, net);
         tgNet.setCSVOutput(br, "battery_" + csvPrefix + "_net");
         tgNet.setTableName(br, "battery_" + csvPrefix + "_net");
         tgNet.addColumn("UID", null, Table.FLAG_ALIGN_RIGHT, "uid int");
         tgNet.addColumn("Received (B)", null, Table.FLAG_ALIGN_RIGHT, "received_b int");
         tgNet.addColumn("Sent (B)", null, Table.FLAG_ALIGN_RIGHT, "sent_b int");
-        tgNet.addColumn("Total (B)", null, Table.FLAG_ALIGN_RIGHT, "total_b int");
+        tgNet.addColumn("Total", null, Table.FLAG_NONE, "total varchar");
         tgNet.begin();
 
         // Process the data
@@ -464,8 +474,14 @@ public class BatteryInfoPlugin extends Plugin {
         HashMap<String, CpuPerUid> cpuPerUidStats = new HashMap<String, CpuPerUid>();
         for (Node item : node) {
             String line = item.getLine();
-            if (line.startsWith("#")) {
-                String sUID = line.substring(1, line.length() - 1);
+            if (line.endsWith(":") && !line.contains("All partial wake locks")) {
+            	//currently disable "uxxx" processors parsering
+            	if (line.startsWith("u")) continue;
+            	String sUID;
+            	if (line.startsWith("#"))
+            		sUID = line.substring(1, line.length() - 1);
+            	else
+            		sUID = line.substring(0, line.length() - 1);
                 PackageInfoPlugin.UID uid = null;
                 String uidName = sUID;
                 Anchor uidLink = null;
@@ -503,17 +519,19 @@ public class BatteryInfoPlugin extends Plugin {
                         } else {
                             System.err.println("Could not parse line: " + s);
                         }
-                    } else if (s.startsWith("Network: ")) {
+                    } else if (s.startsWith("Network: ") || s.startsWith("Mobile network: ")) {
                         Matcher m = pNet.matcher(s);
                         if (m.find()) {
-                            long recv = parseBytes(m.group(1));
-                            long sent = parseBytes(m.group(2));
+//                        	br.printErr(3, TAG + "$$$$startsWith(\"Network: \") line:" +s + "\n" +m.group(1)+ "\n" +m.group(2)+ "\n" +m.group(3));
+                        	long recv = parseBytes(m.group(2));
+                            long sent = parseBytes(m.group(3));
                             sumRecv += recv;
                             sumSent += sent;
                             tgNet.addData(uidName, new Link(uidLink, sUID));
                             tgNet.addData(new ShadedValue(recv));
                             tgNet.addData(new ShadedValue(sent));
-                            tgNet.addData(new ShadedValue(recv + sent));
+                            //network size util is 1024
+                            tgNet.addData(Util.humanReadableByteCount(recv + sent, false));
                         } else {
                             System.err.println("Could not parse line: " + s);
                         }
@@ -622,7 +640,7 @@ public class BatteryInfoPlugin extends Plugin {
             tgNet.addData("TOTAL:");
             tgNet.addData(new ShadedValue(sumRecv));
             tgNet.addData(new ShadedValue(sumSent));
-            tgNet.addData(new ShadedValue(sumRecv + sumSent));
+            tgNet.addData(Util.humanReadableByteCount(sumRecv + sumSent, false));
             tgNet.end();
             ch.addChapter(net);
         }
