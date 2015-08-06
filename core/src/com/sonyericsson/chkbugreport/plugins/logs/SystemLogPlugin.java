@@ -172,6 +172,10 @@ public class SystemLogPlugin extends LogPlugin {
         if (sl.tag.equals("dalvikvm") && sl.msg.startsWith("GC_")) {
             analyzeGC(sl, i, br, s);
         }
+        //android5 replace dalvik to art 
+        if(sl.tag.equals("art") && sl.msg.contains("total")){
+        	analyzeGC5(sl,i,br,s);
+        }
 
         if (sl.tag.equals("WindowManager") && sl.level == 'I') {
             String key = "Setting rotation to ";
@@ -475,7 +479,43 @@ public class SystemLogPlugin extends LogPlugin {
             // ignore
         }
     }
+    //android5 process VM info
+    private void analyzeGC5(LogLine sl, int i, BugReportModule br, Section s) {
+        String line = sl.line;
+        int idxFreeAlloc = line.indexOf(" free ");
+        int idxExtAlloc = line.indexOf(" external ");
+        if (idxFreeAlloc < 0) return;
+        idxFreeAlloc += 6;
+        int idxFreeAllocEnd = line.indexOf('B', idxFreeAlloc);
+        if (idxFreeAllocEnd < 0) return;
+        int idxFreeSize = idxFreeAllocEnd + 2;
+        int idxFreeSizeEnd = line.indexOf('B', idxFreeSize);
+        if (idxFreeSizeEnd < 0) return;
+        try {
+            int memFreeAlloc = Integer.parseInt(line.substring(idxFreeAlloc, idxFreeAllocEnd));
+            int memFreeSize = Integer.parseInt(line.substring(idxFreeSize, idxFreeSizeEnd));
+            int memExtAlloc = -1;
+            int memExtSize = -1;
+            if (idxExtAlloc > 0) {
+                idxExtAlloc += 10;
+                int idxExtAllocEnd = line.indexOf('K', idxExtAlloc);
+                if (idxExtAllocEnd > 0) {
+                    int idxExtSize = idxExtAllocEnd + 2;
+                    int idxExtSizeEnd = line.indexOf('K', idxExtSize);
+                    if (idxExtSizeEnd > 0) {
+                        memExtAlloc = Integer.parseInt(line.substring(idxExtAlloc, idxExtAllocEnd));
+                        memExtSize = Integer.parseInt(line.substring(idxExtSize, idxExtSizeEnd));
+                    }
 
+                }
+            }
+            GCRecord gc = new GCRecord(sl.ts, sl.pid, memFreeAlloc, memFreeSize, memExtAlloc, memExtSize);
+            addGCRecord(sl.pid, gc);
+        } catch (NumberFormatException e) {
+            // ignore
+        }
+    }
+    
     private void analyzeRotation(LogLine sl, BugReportModule br, int rot) {
         // Put a marker box
         String icon = "portrait";

@@ -820,6 +820,7 @@ public abstract class Module implements ChapterParent {
         try {
             if (is == null) {
                 // Check file size (only if not reading from stream)
+            	System.out.println(System.getProperty("user.dir"));
                 File f = new File(fileName);
                 long size = f.length();
                 is = new FileInputStream(f);

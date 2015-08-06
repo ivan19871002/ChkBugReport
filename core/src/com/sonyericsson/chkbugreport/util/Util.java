@@ -46,6 +46,7 @@ public final class Util {
      */
     public static final String PRIVATE_DIR_NAME = ".chkbugreport";
 
+
     /** Length of 1 second in milliseconds */
     public static final long SEC_MS = 1000;
     /** Length of 1 minute in milliseconds */

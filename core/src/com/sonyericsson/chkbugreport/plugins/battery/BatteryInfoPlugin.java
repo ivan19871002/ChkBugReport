@@ -203,11 +203,18 @@ public class BatteryInfoPlugin extends Plugin {
         int idx = 0;
         int cnt = sec.getLineCount();
         boolean foundBatteryHistory = false;
+        boolean flagV = false;
         while (idx < cnt) {
             String buff = sec.getLine(idx++);
-            if (buff.equals("Battery History:")) {
+//origin            if (buff.equals("Battery History:")) {
+            if (buff.equals("Battery History:")){  // android 4 enter this block 
                 foundBatteryHistory = true;
+                flagV = true;  // to distinguish android4 or android5
                 break;
+            }
+            if (buff.contains("Battery History")){ // android 5 enter this block
+            	foundBatteryHistory = true;
+            	break;
             }
         }
 
@@ -230,35 +237,62 @@ public class BatteryInfoPlugin extends Plugin {
                 if (buff.length() == 0) {
                     break;
                 }
-
+                long ts = 0;
                 // Read the timestamp
-                long ts = ref - Util.parseRelativeTimestamp(buff.substring(0, 21));
-
+                if (flagV){
+                	ts = ref - Util.parseRelativeTimestamp(buff.substring(0, 21));
+                } else {
+                //for android5
+                	ts = Util.parseRelativeTimestamp(buff.substring(0, 21)) - ref;
+                }
                 // Read the battery level
-                String levelS = buff.substring(22, 25);
+                String levelS = "";
+                if (flagV){
+                	levelS = buff.substring(22,25);
+                } else {
+                	levelS = buff.substring(26,29);
+                }//add those to debug for android 5
                 if (levelS.charAt(0) == ' ') continue; // there is a disturbance in the force...
+                if(levelS.matches("^[a-zA-Z].*$")) continue;//add this line to filter if param not an int
                 int level = Integer.parseInt(levelS);
                 levelDs.addData(new Data(ts, level));
 
                 // Parse the signal levels
                 if (buff.length() > 35) {
-                    buff = buff.substring(35);
+//origin                    buff = buff.substring(35);
+                	if (buff.substring(35).matches("^[0-9].*$") && buff.length() > 39){ //cut none use data for android 5
+                		buff = buff.substring(39);
+                	} else {
+                		buff = buff.substring(35);
+                	}
                     String signals[] = buff.split(" ");
                     for (String s : signals) {
-                        char c = s.charAt(0);
-                        if (c == '+') {
-                            addSignal(ts, s.substring(1), 1);
-                        } else if (c == '-') {
-                            addSignal(ts, s.substring(1), 0);
-                        } else {
-                            int eq = s.indexOf('=');
-                            if (eq > 0) {
-                                String value = s.substring(eq + 1);
-                                s = s.substring(0, eq);
-                                addSignal(ts, s, value);
-                            }
-                        }
-                    }
+                    		char c = s.charAt(0);
+                    		if (c == '+') {
+                    			if (s.contains("=")){
+                    				String[] ss = s.split("=");
+                    				String s1 = ss[0];
+                    				addSignal(ts,s1.substring(1),1);
+                    			} else {
+                    				addSignal(ts, s.substring(1), 1);
+                    			}
+                    		} else if (c == '-') {
+                    			if (s.contains("=")){
+                    				String[] ss = s.split("=");
+                    				String s1 = ss[0];
+                    				addSignal(ts,s1.substring(1),1);
+                    			} else {
+                    				addSignal(ts, s.substring(1), 0);
+                    			}
+                    		} else {
+                    			int eq = s.indexOf('=');
+                    			if (eq > 0) {
+                    				String value = s.substring(eq + 1);
+                    				s = s.substring(0, eq);
+                    				addSignal(ts, s, value);
+                    			}
+                    		}
+                    	}
                 }
             }
 
