@@ -234,8 +234,9 @@ public class BatteryInfoPlugin extends Plugin {
             // Read the battery history and plot the chart
             while (idx < cnt) {
                 String buff = sec.getLine(idx++);
-                if (buff.length() == 0) {
-                    break;
+                if (buff.length() == 0)break;
+                if(buff.length() < 20){  // filter the none use data 
+                    continue;
                 }
                 long ts = 0;
                 // Read the timestamp
@@ -253,7 +254,7 @@ public class BatteryInfoPlugin extends Plugin {
                 	levelS = buff.substring(26,29);
                 }//add those to debug for android 5
                 if (levelS.charAt(0) == ' ') continue; // there is a disturbance in the force...
-                if(levelS.matches("^[a-zA-Z].*$")) continue;//add this line to filter if param not an int
+                if(levelS.matches("^[^0-9].*$")) continue;//add this line to filter if param not an int
                 int level = Integer.parseInt(levelS);
                 levelDs.addData(new Data(ts, level));
 
@@ -426,7 +427,7 @@ public class BatteryInfoPlugin extends Plugin {
         });
     }
 
-    private void genStats(BugReportModule br, Chapter ch, Node node, boolean detectBugs, String csvPrefix) {
+    private void genStats(BugReportModule br, Chapter ch, Node node, boolean detectBugs, String csvPrefix){
         PackageInfoPlugin pkgInfo = (PackageInfoPlugin) br.getPlugin("PackageInfoPlugin");
         BugState bug = null;
         PreText pre = new PreText(ch);
@@ -511,6 +512,15 @@ public class BatteryInfoPlugin extends Plugin {
             if (line.endsWith(":") && !line.contains("All partial wake locks")) {
             	//currently disable "uxxx" processors parsering
             	if (line.startsWith("u")) continue;
+            	// for android 5 temp solutions
+            	if (line.contains("brightnesses") 
+            			|| line.contains("levels") 
+            			|| line.contains("types") 
+            			|| line.contains("Wifi") 
+            			|| line.contains("mAh") 
+            			|| line.contains("packet") 
+            			|| line.contains("locks") 
+            			|| line.contains("reasons")) continue;
             	String sUID;
             	if (line.startsWith("#"))
             		sUID = line.substring(1, line.length() - 1);
