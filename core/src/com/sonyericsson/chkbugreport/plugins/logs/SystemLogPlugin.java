@@ -159,6 +159,9 @@ public class SystemLogPlugin extends LogPlugin {
 
         if (sl.msg.startsWith("hprof: dumping heap strings to ")) {
             analyzeHPROF(sl, i, br, s);
+        } else if (sl.tag.equals("bt_hci") &&
+                sl.msg.startsWith("command_timed_out hci layer timeout waiting for response to a command")) {
+            analyzeBluedroidReboot(sl, i, br, s);
         }
 
         if (isFatalException(sl)) {
@@ -380,6 +383,30 @@ public class SystemLogPlugin extends LogPlugin {
         }
         bug.setAttr(Bug.ATTR_FIRST_LINE, firstLine);
         bug.setAttr(Bug.ATTR_LAST_LINE, lastLine);
+        bug.setAttr(Bug.ATTR_LOG_INFO_ID, getInfoId());
+        br.addBug(bug);
+    }
+
+    private void analyzeBluedroidReboot(LogLine sl, int i, BugReportModule br, Section s) {
+        // Put a marker box
+        sl.addMarker("log-float-err", "FATAL<br/>ERROR", null);
+
+        // Create a bug and store the relevant log lines
+        Bug bug = new Bug(Bug.Type.PHONE_ERR, Bug.PRIO_JAVA_CRASH_SYSTEM_LOG, sl.ts, sl.msg);
+        new Block(bug).add(new Link(sl.getAnchor(), "(link to log)"));
+        DocNode log = new Block(bug).addStyle("log");
+        log.add(sl.symlink());
+        int end = i + 1;
+        boolean terminated = false;
+        int maxLines = 10;
+        while (end < s.getLineCount() && !terminated && maxLines-- > 0) {
+            LogLine sl2 = getParsedLine(end);
+            terminated = sl2.msg.equals("command_timed_out restarting the bluetooth process.");
+            log.add(sl2.symlink());
+            end++;
+        }
+        bug.setAttr(Bug.ATTR_FIRST_LINE, i);
+        bug.setAttr(Bug.ATTR_LAST_LINE, end);
         bug.setAttr(Bug.ATTR_LOG_INFO_ID, getInfoId());
         br.addBug(bug);
     }
