@@ -47,8 +47,10 @@ import java.io.InputStream;
 import java.io.PrintStream;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -828,31 +830,73 @@ public abstract class Module implements ChapterParent {
         return mSaveFile;
     }
 
+    private static class FileNameComparator implements Comparator<String> {
+        public int compare(String a, String b) {
+            return b.compareTo(a);
+        }
+    }
+
+    private String[] handleFileNames(String fileName) {
+         ArrayList<String> list = new ArrayList<String>();
+
+         String[] names = fileName.split(",");
+         for (String name : names) {
+             File file = new File(name);
+             if (file.isDirectory()) {
+                 File[] dirFiles = file.listFiles();
+                 if (dirFiles != null) {
+                     for (File dirf : dirFiles) {
+                         if (dirf.isFile()) {
+                             list.add(dirf.getAbsolutePath());
+                         }
+                     }
+                 }
+             } else if (file.exists()) {
+                 list.add(file.getAbsolutePath());
+             }
+         }
+
+         Collections.sort(list, new FileNameComparator());
+         return list.toArray(new String[list.size()]);
+    }
+
     private int readFile(Section sl, String fileName, InputStream is, int limit) {
         int ret = READ_ALL;
         try {
-            if (is == null) {
-                // Check file size (only if not reading from stream)
-                File f = new File(fileName);
-                long size = f.length();
-                is = new FileInputStream(f);
-                if (size > limit) {
-                    // Need to seek to "end - limit"
-                    Util.skip(is, size - limit);
-                    Util.skipToEol(is);
-                    printErr(1, "File '" + fileName + "' is too long, loading only last " + (limit / Util.MB) + " megabyte(s)...");
-                    ret = READ_PARTS;
+            int k = 0;
+            String[] fileNames = handleFileNames(fileName);
+
+            do {
+                if (is != null) {
+                    LineReader br = new LineReader(is);
+
+                    String line = null;
+                    while (null != (line = br.readLine())) {
+                        sl.addLine(line);
+                    }
+
+                    br.close();
+                    is.close();
+                    is = null;
                 }
-            }
 
-            LineReader br = new LineReader(is);
+                if (k < fileNames.length) {
+                    File f = new File(fileNames[k]);
+                    long size = f.length();
+                    is = new FileInputStream(f);
+                    if (size > limit) {
+                        // Need to seek to "end - limit"
+                        Util.skip(is, size - limit);
+                        Util.skipToEol(is);
+                        printErr(1, "File '" + fileNames[k] + "' is too long, loading only last " + (limit / Util.MB) + " megabyte(s)...");
+                        ret = READ_PARTS;
+                    } else if (fileNames.length > 1) {
+                        printOut(1, "File '" + fileNames[k] + "' is loading ...");
+                    }
+                    k++;
+                }
+            } while (is != null && k < fileNames.length);
 
-            String line = null;
-            while (null != (line = br.readLine())) {
-                sl.addLine(line);
-            }
-            br.close();
-            is.close();
             return ret;
         } catch (IOException e) {
             printErr(1, "Error reading file '" + fileName + "' (it will be ignored): " + e);
