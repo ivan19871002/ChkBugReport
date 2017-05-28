@@ -832,6 +832,29 @@ public abstract class Module implements ChapterParent {
 
     private static class FileNameComparator implements Comparator<String> {
         public int compare(String a, String b) {
+            if (a == null && b == null) {
+                return 0;
+            } else if (a == null) {
+                return 1;
+            } else if (b == null) {
+                return -1;
+            }
+
+            String[] as = a.split("\\.");
+            String[] bs = b.split("\\.");
+            int lmin = Math.min(as.length, bs.length);
+            for (int i = 0; i < lmin; i++) {
+                int c = bs[i].compareTo(as[i]);
+                if (c != 0) {
+                    if (as[i].matches("^\\d+$") && bs[i].matches("^\\d+$")) {
+                        int ias = Integer.valueOf(as[i]);
+                        int ibs = Integer.valueOf(bs[i]);
+                        return Integer.compare(ibs, ias);
+                    }
+                    return c;
+                }
+            }
+
             return b.compareTo(a);
         }
     }
