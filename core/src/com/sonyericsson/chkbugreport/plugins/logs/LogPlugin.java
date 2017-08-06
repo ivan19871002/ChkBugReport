@@ -61,6 +61,7 @@ public abstract class LogPlugin extends Plugin implements LogData {
 
     private long mTsFirst = -1;
     private long mTsLast = -1;
+    private long mErrorLogLastLine = -1;
 
     private String mWhich;
     private String mId;
@@ -410,6 +411,7 @@ public abstract class LogPlugin extends Plugin implements LogData {
     }
 
     private void reportFatalLog(LogLine sl, int i, BugReportModule br, Section s) {
+        if (i <= mErrorLogLastLine) return;
         // Put a marker box
         sl.addMarker("log-float-err", "FATAL", null);
 
@@ -419,13 +421,16 @@ public abstract class LogPlugin extends Plugin implements LogData {
         new Para(bug).add("Log around the fatal log line (+/-10 lines):");
         DocNode log = new Block(bug).addStyle("log");
         int from = Math.max(0, i - 10);
-        int to = Math.min(s.getLineCount() - 1, i + 10);
+        int to = Math.min(s.getLineCount() - 1, i + 100);
         if (from > 0) {
             log.add("...");
         }
         for (int idx = from; idx <= to; idx++) {
             LogLine sl2 = getParsedLine(idx);
-            log.add(sl2.symlink());
+            if (sl2.pid == sl.pid) {
+                log.add(sl2.symlink());
+                mErrorLogLastLine = idx;
+            }
         }
         if (to < s.getLineCount() - 1) {
             log.add("...");
