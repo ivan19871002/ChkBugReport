@@ -56,6 +56,12 @@ public class Doc extends Chapter {
         if (fileName.endsWith(".txt")) {
             fileName = fileName.substring(0, fileName.length() - 4);
         }
+        if (fileName.contains(",")) {
+            fileName = fileName.split(",")[0];
+        }
+        while (fileName.endsWith(".") || fileName.endsWith("/")) {
+            fileName = fileName.substring(0, fileName.length() - 1);
+        }
         mOutDir = fileName + "_out/";
         mIndexHtml = mOutDir + "index.html";
         mRawDir = mOutDir + "raw/";
