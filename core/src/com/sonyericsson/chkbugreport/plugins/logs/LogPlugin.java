@@ -165,9 +165,9 @@ public abstract class LogPlugin extends Plugin implements LogData {
                 if (prev != null) {
                     if (prev.ts + DAY < sl.ts) {
                         // We got a huge timejump, ignore everything before this
-                        skippedDueToTimeJump += mParsedLog.size();
+                        skippedDueToTimeJump++; /*= mParsedLog.size();
                         mParsedLog.clear();
-                        prev = null;
+                        prev = null;*/
                     }
                 }
 
@@ -234,7 +234,7 @@ public abstract class LogPlugin extends Plugin implements LogData {
             Bug bug = new Bug(Bug.Type.TOOL_WARN, Bug.PRIO_LOG_TIMEJUMP, 0, "Huge time gap in " + mSectionName);
             bug.add(new Block()
                 .add("There was at least one huge time gap (at least one day) in the log. The lines before the last time gap ("
-                    + skippedDueToTimeJump + " lines) have been skipped in the ")
+                    + skippedDueToTimeJump + " spaces) have been found in the ")
                 .add(new Link(getChapter().getAnchor(), mSectionName)));
             br.addBug(bug);
         }
