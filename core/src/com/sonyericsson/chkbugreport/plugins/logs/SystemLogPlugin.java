@@ -117,8 +117,7 @@ public class SystemLogPlugin extends LogPlugin {
             if (m.matches()) {
                 mConnectivityLogs.add(new ConnectivityLog(sl.ts, m.group(1), m.group(2)));
             }
-        }
-        if (sl.tag.equals("ActivityManager") && sl.level == 'I') {
+        } else if (sl.tag.equals("ActivityManager") && sl.level == 'I') {
             if (sl.msg.startsWith("Start proc ")) {
                 analyzeStartProc(sl, br);
             }
@@ -131,17 +130,13 @@ public class SystemLogPlugin extends LogPlugin {
             if (sl.msg.startsWith("Config changed: ")) {
                 analyzeConfigChanged(sl, br);
             }
-        }
-
-        if (sl.tag.equals("AndroidRuntime") && sl.level == 'D') {
+        } else if (sl.tag.equals("AndroidRuntime") && sl.level == 'D') {
             if (sl.msg.startsWith("Calling main entry ")) {
                 String procName = sl.msg.substring("Calling main entry ".length());
                 ProcessRecord pr = br.getProcessRecord(sl.pid, true, false);
                 pr.suggestName(procName, 2);
             }
-        }
-
-        if (sl.tag.equals("ActivityManager") && sl.level == 'E') {
+        } else if (sl.tag.equals("ActivityManager") && sl.level == 'E') {
             if (sl.msg.startsWith("ANR in ") ||
                     sl.msg.startsWith("Displayed ") ||
                     sl.msg.startsWith("Start proc ") ||
@@ -149,15 +144,11 @@ public class SystemLogPlugin extends LogPlugin {
                     sl.msg.startsWith("act=")) {
                 analyzeANR(sl, i, br, s);
             }
-        }
-
-        if (sl.tag.equals("DEBUG") && sl.level == 'I') {
+        } else if (sl.tag.equals("DEBUG") && sl.level == 'I') {
             if (sl.msg.equals("*** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***")) {
                 analyzeNativeCrash(sl, i, br, s);
             }
-        }
-
-        if (sl.msg.startsWith("hprof: dumping heap strings to ")) {
+        } else if (sl.msg.startsWith("hprof: dumping heap strings to ")) {
             analyzeHPROF(sl, i, br, s);
         } else if (sl.tag.equals("bt_hci") &&
                 sl.msg.startsWith("command_timed_out hci layer timeout waiting for response to a command")) {
