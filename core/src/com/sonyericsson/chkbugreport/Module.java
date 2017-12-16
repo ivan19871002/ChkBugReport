@@ -918,7 +918,7 @@ public abstract class Module implements ChapterParent {
                     }
                     k++;
                 }
-            } while (is != null && k < fileNames.length);
+            } while (is != null);
 
             return ret;
         } catch (IOException e) {
@@ -949,6 +949,9 @@ public abstract class Module implements ChapterParent {
 
     public boolean addFile(String fileName, String type, boolean limitSize) {
         // Check if any of the plugins would like to handle this
+        while (fileName != null && (fileName.endsWith("/") || fileName.endsWith("\\") || fileName.endsWith("\\."))) {
+            fileName = fileName.substring(0, fileName.length() - 1);
+        }
         for (Plugin p : mPlugins) {
             if (p.handleFile(this, fileName, type)) {
                 return true;
