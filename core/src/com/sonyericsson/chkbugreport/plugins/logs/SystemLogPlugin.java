@@ -192,6 +192,12 @@ public class SystemLogPlugin extends LogPlugin {
         if (sl.pid > 0) {
             ProcessRecord pr = br.getProcessRecord(sl.pid, true, false);
             pr.suggestName("[" + sl.tag + "]", 1); // weakest prio
+            if (sl.tag.equals("evan")) {
+                if (sl.msg.matches("Legal app: ([^ ]+) - (\\d)+")) {
+                     String tn = sl.msg.substring(11, sl.msg.lastIndexOf('-')).trim();
+                     pr.suggestName("[" + tn + "]", 2);
+                }
+            }
         }
     }
 

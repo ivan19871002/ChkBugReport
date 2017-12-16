@@ -48,7 +48,10 @@ public class ProcessRecord extends Chapter {
     }
 
     public void suggestName(String name, int prio) {
-        if (prio > mNamePrio) {
+        if (name == null || "".equals(name))
+            name = "";
+
+        if (prio > mNamePrio || ("".equals(mProcName) && !"".equals(name))) {
             setProcName(name);
             mNamePrio = prio;
         }
