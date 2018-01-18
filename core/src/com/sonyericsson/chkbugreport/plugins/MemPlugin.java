@@ -44,6 +44,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /*
  * Note: some of the explanation is taken from: http://www.redhat.com/advice/tips/meminfo.html
@@ -51,6 +53,7 @@ import java.util.Vector;
 public class MemPlugin extends Plugin {
 
     private static final String TAG = "[MemPlugin]";
+    private static final Pattern INFO_LINE_PATTERN = Pattern.compile("^([^:]+):\\s+(\\d+) kB");
 
     private static final int GW = 128;
     private static final int GH = 256;
@@ -61,12 +64,12 @@ public class MemPlugin extends Plugin {
     private static final int IW = GW + GML + GMR;
     private static final int IH = GH + GMT + GMB;
 
-    private int mTotMem = 0;
-    private int mFreeMem = 0;
-    private int mBuffers = 0;
-    private int mCaches = 0;
-    private int mSlabR = 0;
-    private int mSlabU = 0;
+    private long mTotMem = 0;
+    private long mFreeMem = 0;
+    private long mBuffers = 0;
+    private long mCaches = 0;
+    private long mSlabR = 0;
+    private long mSlabU = 0;
 
     private Vector<MemInfo> mMemInfos = new Vector<MemInfo>();
     private HashMap<Integer, LRMemInfoList> mLRMemInfoPid = new HashMap<Integer, LRMemInfoList>();
@@ -195,13 +198,14 @@ public class MemPlugin extends Plugin {
         int cnt = sec.getLineCount();
         for (int i = 0; i < cnt; i++) {
             String line = sec.getLine(i);
-            int idx = line.indexOf(':');
-            if (idx < 0) continue;
-            String key = line.substring(0, idx);
-            String value = Util.strip(line.substring(idx + 1, 24));
-            int intValue = 0;
+            Matcher m = INFO_LINE_PATTERN.matcher(line);
+            if (!m.matches()) continue;
+
+            String key = m.group(1);
+            String value = m.group(2);
+            long longValue = 0;
             try {
-                intValue = Integer.parseInt(value);
+                longValue = Long.parseLong(value);
             } catch (NumberFormatException e) {
                 mod.printErr(4, TAG + "Error parsing number: " + value);
                 continue;
@@ -211,16 +215,16 @@ public class MemPlugin extends Plugin {
             // Lookup the explanation
             if ("MemTotal".equals(key)) {
                 expl = "The total amount of memory available for the android system. This does not count memory used by kernel code or the modem side.";
-                mTotMem = intValue;
+                mTotMem = longValue;
             } else if ("MemFree".equals(key)) {
                 expl = "This is the amount of yet completely not used memory.";
-                mFreeMem = intValue;
+                mFreeMem = longValue;
             } else if ("Buffers".equals(key)) {
                 expl = "Memory in buffer cache. This memory can be freed by the kernel when needed.";
-                mBuffers = intValue;
+                mBuffers = longValue;
             } else if ("Cached".equals(key)) {
                 expl = "Memory in disk cache (memory copy of disk content in order to speed disk IO). This memory can be freed by the kernel when needed.";
-                mCaches = intValue;
+                mCaches = longValue;
             } else if ("SwapCached".equals(key)) {
                 expl = "Memory that once was swapped out, is swapped back in but still also is in the swapfile (if memory is needed it doesn't need to be swapped out AGAIN because it is already in the swapfile. This saves I/O). Not used in android (since officially android doesn't use a swap partition).";
             } else if ("SwapTotal".equals(key)) {
@@ -243,10 +247,10 @@ public class MemPlugin extends Plugin {
                 expl = "In-kernel data structures cache.";
             } else if ("SReclaimable".equals(key)) {
                 expl = "Part of Slab, that might be reclaimed, such as caches.";
-                mSlabR = intValue;
+                mSlabR = longValue;
             } else if ("SUnreclaim".equals(key)) {
                 expl = "Part of Slab, that cannot be reclaimed on memory pressure.";
-                mSlabU = intValue;
+                mSlabU = longValue;
             } else if ("PageTables".equals(key)) {
                 expl = "Amount of memory dedicated to the lowest level of page tables.";
             } else if ("VmallocTotal".equals(key)) {
@@ -262,7 +266,7 @@ public class MemPlugin extends Plugin {
             // Add the data to the table
             if (expl == null) continue;
             t.addData(key);
-            t.addData(new ShadedValue(intValue));
+            t.addData(new ShadedValue(longValue));
             t.addData(expl);
         }
         t.end();
@@ -282,29 +286,29 @@ public class MemPlugin extends Plugin {
 
         // Draw the free memory
         int yy = 0;
-        int hh = mFreeMem * GH / mTotMem;
+        int hh = (int) (mFreeMem * GH / mTotMem);
         drawBox(img, 0x00ff00, yy, hh);
         drawLabel(img, 0, hh, "Free");
 
         // Draw the buffers
         yy += hh;
-        hh = mBuffers * GH / mTotMem;
+        hh = (int) (mBuffers * GH / mTotMem);
         drawBox(img, 0x40ffff, yy, hh);
         int startPossFree = yy;
 
         // Draw the cache
         yy += hh;
-        hh = mCaches * GH / mTotMem;
+        hh = (int) (mCaches * GH / mTotMem);
         drawBox(img, 0x8080ff, yy, hh);
 
         // Draw the slab-r
         yy += hh;
-        hh = mSlabR * GH / mTotMem;
+        hh = (int) (mSlabR * GH / mTotMem);
         drawBox(img, 0xffff000, yy, hh);
 
         // Draw the slab-u
         yy += hh;
-        hh = mSlabU * GH / mTotMem;
+        hh = (int) (mSlabU * GH / mTotMem);
         drawBox(img, 0xff00000, yy, hh);
         int endPossFree = yy;
         drawLabel(img, startPossFree, endPossFree, "Can be freed");
@@ -885,7 +889,7 @@ public class MemPlugin extends Plugin {
         return ret;
     }
 
-    public int getTotalMem() {
+    public long getTotalMem() {
         return mTotMem;
     }
 
