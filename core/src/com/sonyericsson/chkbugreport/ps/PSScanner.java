@@ -27,12 +27,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PSScanner {
+    private static final Pattern HEADER = Pattern.compile("USER +PID +(TID +)?PPID");
 
     private BugReportModule mBr;
-    private static final String HEADER_1 = "USER     PID   PPID  VSIZE  RSS    PCY  WCHAN    PC         NAME";
-    private static final Pattern PATTERN_1 = Pattern.compile("([a-z0-9_]+) *([0-9]+) *([0-9]+) *([0-9]+) *([0-9]+) *(fg|bg|un)?  ([0-9-a-f]{8}) ([0-9-a-f]{8}) (.) (.*)");
-    private static final String HEADER_2 = "USER     PID   PPID  VSIZE  RSS   PRIO  NICE  RTPRI SCHED  PCY  WCHAN    PC         NAME";
-    private static final Pattern PATTERN_2 = Pattern.compile("([a-z0-9_]+) *([0-9]+) *([0-9]+) *([0-9]+) *([0-9]+) *([0-9-]+) *([0-9-]+) *([0-9-]+) *([0-9-]+) *(fg|bg|un)?  ([0-9-a-f]{8}) ([0-9-a-f]{8}) (.) (.*)");
 
     public PSScanner(BugReportModule br) {
         mBr = br;
@@ -46,6 +43,15 @@ public class PSScanner {
         return ret;
     }
 
+    private String ensureItemWithOffset(int index, int size, String[] item) {
+        if (item.length == size) {
+            return item[index];
+        } else {
+            // Some item is missed, return the item backwards
+            return item[item.length - 1 - (size - index)];
+        }
+    }
+
     private PSRecords readPS(String sectionName) {
         Section ps = mBr.findSection(sectionName);
         if (ps == null) {
@@ -55,29 +61,30 @@ public class PSScanner {
 
         // Process the PS section
         PSRecords ret = new PSRecords();
-        Pattern p = null;
-        int lineIdx = 0, idxPid = -1, idxPPid = -1, idxPcy = -1, idxName = -1, idxNice = -1;
+        int lineIdx = 0, idxPid = -1, idxPPid = -1, idxPcy = -1, idxName = -1, idxNice = -1, size = 0;
         for (int tries = 0; tries < 10 && lineIdx < ps.getLineCount(); tries++) {
             String buff = ps.getLine(lineIdx++);
-            if (buff.equals(HEADER_1)) {
-                p = PATTERN_1;
-                idxPid = 2;
-                idxPPid = 3;
-                idxPcy = 6;
-                idxName = 10;
-                break;
-            }
-            if (buff.equals(HEADER_2)) {
-                p = PATTERN_2;
-                idxPid = 2;
-                idxPPid = 3;
-                idxNice = 7;
-                idxPcy = 10;
-                idxName = 14;
+            Matcher matcher = HEADER.matcher(buff);
+            if (matcher.find()) {
+                String items[] = buff.split("\\s+");
+                size = items.length;
+                for (int i = 0; i < size; i++) {
+                    if ("PID".equals(items[i])) {
+                        idxPid = i;
+                    } else if ("PPID".equals(items[i])) {
+                        idxPPid = i;
+                    } else if ("NICE".equals(items[i]) || "NI".equals(items[i])) {
+                        idxNice = i;
+                    } else if ("PCY".equals(items[i])) {
+                        idxPcy = i;
+                    } else if ("NAME".equals(items[i]) || "CMD".equals(items[i])) {
+                        idxName = i;
+                    }
+                }
                 break;
             }
         }
-        if (p == null) {
+        if (idxPid == -1) {
             mBr.printErr(4, "Could not find header in ps output");
             return null;
         }
@@ -88,15 +95,17 @@ public class PSScanner {
         for (int i = lineIdx; i < cnt; i++) {
             String buff = ps.getLine(i);
             if (buff.startsWith("[")) break;
-            Matcher m = p.matcher(buff);
-            if (!m.matches()) {
+
+            String items[] = buff.split("\\s+", size);
+            // WCHAN might be empty, the item size might be tightly different
+            if (items.length < size - 1) {
                 mBr.printErr(4, "Error parsing line: " + buff);
                 continue;
             }
 
             int pid = -1;
             if (idxPid >= 0) {
-                String sPid = m.group(idxPid);
+                String sPid = items[idxPid];
                 try {
                     pid = Integer.parseInt(sPid);
                 } catch (NumberFormatException nfe) {
@@ -108,7 +117,7 @@ public class PSScanner {
             // Extract ppid
             int ppid = -1;
             if (idxPPid >= 0) {
-                String sPid = m.group(idxPPid);
+                String sPid = items[idxPPid];
                 try {
                     ppid = Integer.parseInt(sPid);
                 } catch (NumberFormatException nfe) {
@@ -120,7 +129,7 @@ public class PSScanner {
             // Extract nice
             int nice = PSRecord.NICE_UNKNOWN;
             if (idxNice >= 0) {
-                String sNice = m.group(idxNice);
+                String sNice = ensureItemWithOffset(idxNice, size, items);
                 try {
                     nice = Integer.parseInt(sNice);
                 } catch (NumberFormatException nfe) {
@@ -132,7 +141,7 @@ public class PSScanner {
             // Extract scheduler policy
             int pcy = PSRecord.PCY_UNKNOWN;
             if (idxPcy >= 0) {
-                String sPcy = m.group(idxPcy);
+                String sPcy = ensureItemWithOffset(idxPcy, size, items);
                 if ("fg".equals(sPcy)) {
                     pcy = PSRecord.PCY_NORMAL;
                 } else if ("bg".equals(sPcy)) {
@@ -147,7 +156,9 @@ public class PSScanner {
             // Exctract name
             String name = "";
             if (idxName >= 0) {
-                name = m.group(idxName);
+                name = ensureItemWithOffset(idxName, size, items);
+                // Header might not contain the item "S" with "ps -P"
+                if (name.startsWith("S ")) name = name.substring(2);
             }
 
             // Fix the name
