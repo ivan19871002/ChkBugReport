@@ -42,8 +42,8 @@ import java.util.regex.Pattern;
     }
 
     public Processes scan(BugReportModule br, int id, Section sec, String chapterName) {
-        Pattern pNat = Pattern.compile("  #..  pc (........)  ([^() ]+)(?: \\((.*)\\+(.*)\\))?");
-        Pattern pNatAlt = Pattern.compile("  #..  pc (........)  ([^() ]+) \\(deleted\\)");
+        Pattern pNat = Pattern.compile("\\s+#..\\s+pc\\s+([a-z0-9]{8,16})\\s+([^() ]+)(?: \\((.*)\\+(.*)\\))?");
+        Pattern pNatAlt = Pattern.compile("\\s+#..\\s+pc\\s+([a-z0-9]{8,16})\\s+([^() ]+) \\(deleted\\)");
         int cnt = sec.getLineCount();
         int state = STATE_INIT;
         Processes processes = new Processes(br, id, chapterName, sec.getName());
