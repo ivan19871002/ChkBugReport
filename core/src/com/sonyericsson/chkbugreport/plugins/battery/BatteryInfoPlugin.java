@@ -393,7 +393,7 @@ public class BatteryInfoPlugin extends Plugin {
 
         // Prepare the kernelWakeLock table
         Chapter kernelWakeLock = new Chapter(br.getContext(), "Kernel Wake locks");
-        Pattern pKWL = Pattern.compile(".*?\"(.*?)\": (.*?) \\((.*?) times\\)");
+        Pattern pKWL = Pattern.compile(".*?\"?(.*?)\"?: (.*?) \\((.*?) times\\)");
         Table tgKWL = new Table(Table.FLAG_SORT, kernelWakeLock);
         tgKWL.setCSVOutput(br, "battery_" + csvPrefix + "_kernel_wakelocks");
         tgKWL.setTableName(br, "battery_" + csvPrefix + "_kernel_wakelocks");
