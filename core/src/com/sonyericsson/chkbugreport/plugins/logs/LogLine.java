@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 
 public class LogLine extends DocNode {
 
-    private static final Pattern TS = Pattern.compile("\\[ *([0-9]+)\\.([0-9]+)\\].*");
+    private static final Pattern TS = Pattern.compile("\\[ *([0-9]+)\\.([0-9]+)(@[0-9]+)?\\].*");
     private static final Pattern LOGCAT_PREFIX = Pattern.compile(
             "([0-9]{2}-[0-9]{2}) +([0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}) +([0-9]+) +([0-9]+) +(\\w) +([^:]+):");
     private static final Pattern LOGCAT_PREFIX2 = Pattern.compile(
@@ -420,14 +420,15 @@ public class LogLine extends DocNode {
         tag = "kernel";
 
         // Parse priority
-        if (line.length() >= 3) {
-            if (line.charAt(0) == '<' && line.charAt(2) == '>') {
-                char c = line.charAt(1);
-                if (c <= '0' && c <= '7') {
-                    level = c;
-                }
-                line = line.substring(3);
+        if (line.length() >= 3 && line.charAt(0) == '<' && line.charAt(2) == '>') {
+            char c = line.charAt(1);
+            if (c <= '0' && c <= '7') {
+                level = c;
             }
+            line = line.substring(3);
+        } else if (line.length() >= 4 && line.charAt(0) == '<' && line.charAt(3) == '>') {
+            level = 'X';
+            line = line.substring(4);
         }
 
         // Parse timestamp
