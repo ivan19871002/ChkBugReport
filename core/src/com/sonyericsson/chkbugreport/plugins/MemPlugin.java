@@ -54,6 +54,10 @@ public class MemPlugin extends Plugin {
 
     private static final String TAG = "[MemPlugin]";
     private static final Pattern INFO_LINE_PATTERN = Pattern.compile("^([^:]+):\\s+(\\d+) kB");
+    private static final String LIBRANK_HEADER = " RSStot      VSS      RSS      PSS      USS  Name/PID";
+    private static final Pattern LIBRANK_PATTERN = Pattern.compile(" +([0-9]+)K +([0-9]+)K +([0-9]+)K +([0-9]+)K +(.+)");
+    private static final String LIBRANK_HEADER2 = " RSStot       VSS      RSS      PSS      USS     Swap  Name/PID";
+    private static final Pattern LIBRANK_PATTERN2 = Pattern.compile(" +([0-9]+)K +([0-9]+)K +([0-9]+)K +([0-9]+)K +([0-9]+K|OK) +(.+)");
 
     private static final int GW = 128;
     private static final int GH = 256;
@@ -697,7 +701,7 @@ public class MemPlugin extends Plugin {
             return;
         }
         String line = s.getLine(0);
-        if (!line.equals(" RSStot      VSS      RSS      PSS      USS  Name/PID")) {
+        if (!line.equals(LIBRANK_HEADER) && !line.equals(LIBRANK_HEADER2)) {
             mod.printErr(3, TAG + "librank section format not supported... ignoring it");
             return;
         }
@@ -710,19 +714,23 @@ public class MemPlugin extends Plugin {
                 continue;
             }
             if (line.startsWith("        ")) {
+                Matcher matcher = LIBRANK_PATTERN2.matcher(line);
+                if (!matcher.matches()) {
+                    matcher = LIBRANK_PATTERN.matcher(line);
+                }
                 // add more data to the same memory block
-                if (memName == null) {
+                if (memName == null || !matcher.matches()) {
                     mod.printErr(3, TAG + "Parse error in librank output... trying to continue though (line: " + i + ")");
                 } else {
                     // Parse the data
                     LRMemInfo mi = new LRMemInfo();
                     mi.memName = memName;
-                    mi.vss = Util.parseInt(line, 8, 15, 0);
-                    mi.rss = Util.parseInt(line, 17, 24, 0);
-                    mi.pss = Util.parseInt(line, 26, 33, 0);
-                    mi.uss = Util.parseInt(line, 35, 42, 0);
-                    line = line.substring(46);
-                    mi.procName = Util.extract(line, " ", " ");
+                    mi.vss = Integer.parseInt(matcher.group(1));
+                    mi.rss = Integer.parseInt(matcher.group(2));
+                    mi.pss = Integer.parseInt(matcher.group(3));
+                    mi.uss = Integer.parseInt(matcher.group(4));
+                    line = matcher.group(matcher.groupCount());
+                    mi.procName = Util.extract(line, "", " ");
                     mi.pid = Util.parseInt(Util.extract(line, "[", "]"), 0);
 
                     // Add to the mem stat
