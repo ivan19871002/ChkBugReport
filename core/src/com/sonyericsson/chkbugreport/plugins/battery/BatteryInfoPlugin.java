@@ -202,7 +202,7 @@ public class BatteryInfoPlugin extends Plugin {
         boolean foundBatteryHistory = false;
         while (idx < cnt) {
             String buff = sec.getLine(idx++);
-            if (buff.equals("Battery History:")) {
+            if (buff.equals("Battery History")) {
                 foundBatteryHistory = true;
                 break;
             }
