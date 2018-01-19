@@ -498,24 +498,33 @@ public class SurfaceFlingerPlugin extends Plugin {
         int count = 0;
         int expectedCount = 0;
         int line = 0;
+        boolean found = false;
 
         // Read the number of layers
         String buff = sec.getLine(0);
         if (buff.startsWith("Build configuration:")) {
             buff = sec.getLine(++line);
         }
-        if (buff.startsWith("Visible layers")) {
-            int idx0 = buff.indexOf('=');
-            int idx1 = buff.indexOf(')');
-            if (idx0 < 0 || idx1 < 0 || idx0 >= idx1 + 2) {
-                br.printErr(3, TAG + "Error parsing: cannot find 'count' in first line!");
-                return false;
+
+        while (line < sec.getLineCount()) {
+            buff = sec.getLine(line);
+            if (buff.startsWith("Visible layers")) {
+                int idx0 = buff.indexOf('=');
+                int idx1 = buff.indexOf(')');
+                if (idx0 < 0 || idx1 < 0 || idx0 >= idx1 + 2) {
+                    br.printErr(3, TAG + "Error parsing: cannot find 'count' in first line!");
+                    return false;
+                }
+                expectedCount = Integer.parseInt(buff.substring(idx0 + 2, idx1));
+            } else if (buff.startsWith("+ Layer")) {
+                found = true;
+                break;
             }
-            expectedCount = Integer.parseInt(buff.substring(idx0 + 2, idx1));
+
             line++;
-        } else if (buff.startsWith("+ Layer")) {
-            // NOP
-        } else {
+        }
+
+        if (!found) {
             br.printErr(3, TAG + "Error parsing: cannot recognize section!");
             return false;
         }
@@ -600,7 +609,7 @@ public class SurfaceFlingerPlugin extends Plugin {
 
         // Search for the line "Allocated buffers"
         key = "Allocated buffers:";
-        boolean found = false;
+        found = false;
         while (line < sec.getLineCount()) {
             buff = sec.getLine(line++);
             if (key.equals(buff)) {
@@ -628,7 +637,7 @@ public class SurfaceFlingerPlugin extends Plugin {
                     Buffer buffer = new Buffer();
                     if (buff.charAt(38) == '|') {
                         // pre 2.3
-                        buffer.ptr = Util.parseHex(buff, 0, 10, 0);
+                        buffer.ptr = Util.parseHexLong(buff, 0, 10, 0);
                         buffer.size = Util.parseFloat(buff, 12, 19);
                         buffer.w = Util.parseInt(buff, 26, 30, 0);
                         buffer.stride = buffer.w;
@@ -640,7 +649,7 @@ public class SurfaceFlingerPlugin extends Plugin {
                         // 2.3
                         Matcher m = p.matcher(buff);
                         if (m.matches()) {
-                            buffer.ptr = Integer.parseInt(m.group(1), 16);
+                            buffer.ptr = Long.parseLong(m.group(1), 16);
                             buffer.size = Float.parseFloat(m.group(2));
                             buffer.w = Integer.parseInt(m.group(3));
                             buffer.stride = Integer.parseInt(m.group(4));
@@ -656,6 +665,7 @@ public class SurfaceFlingerPlugin extends Plugin {
             } catch (NumberFormatException nfe) {
                 // Ignore it for now
                 br.printErr(4, TAG + "Error parsing buffer list: " + nfe);
+                nfe.printStackTrace();
             } catch (StringIndexOutOfBoundsException e) {
                 // Ignore it for now
                 br.printErr(4, TAG + "Error parsing buffer list: " + e);
@@ -716,8 +726,10 @@ public class SurfaceFlingerPlugin extends Plugin {
             reg = layer.regTrans;
         } else  if ("transparentRegionScreen".equals(type)) {
             reg = layer.regTransScreen;
-        } else  if ("visibleRegionScreen".equals(type)) {
+        } else  if ("visibleRegionScreen".equals(type) || "visibleRegion".equals(type)) {
             reg = layer.regVisScreen;
+        } else if ("surfaceDamageRegion".equals(type)) {
+            reg = layer.surfaceDamage;
         } else {
             br.printErr(4, "Warning: Unknown region: " + type);
             reg = new Region(type);
@@ -772,7 +784,7 @@ public class SurfaceFlingerPlugin extends Plugin {
                 layer.tr[1][0] = tok.nextFloat();
                 layer.tr[1][1] = tok.nextFloat();
             } else if ("client".equals(key)) {
-                layer.client = tok.nextInt();
+                layer.client = tok.nextLong();
             } else if ("identity".equals(key)) {
                 layer.identity = tok.nextInt();
             } else if ("status".equals(key)) {
@@ -808,6 +820,10 @@ public class SurfaceFlingerPlugin extends Plugin {
                 tok.nextToken(); // y
                 tok.nextToken(); // w
                 tok.nextToken(); // h
+            } else if ("layerStack".equals(key)) {
+                tok.nextToken(); // skip
+            } else if ("isOpaque".equals(key)) {
+                layer.opaque = tok.nextInt();
             } else {
                 if (!mUnknownAttrs.contains(key)) {
                     mUnknownAttrs.add(key);
@@ -836,6 +852,14 @@ public class SurfaceFlingerPlugin extends Plugin {
                 return Integer.parseInt(s.substring(2), 16);
             }
             return Integer.parseInt(s);
+        }
+
+        public long nextLong() {
+            String s = nextToken();
+            if (s.startsWith("0x")) {
+                return Long.parseLong(s.substring(2), 16);
+            }
+            return Long.parseLong(s);
         }
 
         public float nextFloat() {
@@ -875,7 +899,7 @@ public class SurfaceFlingerPlugin extends Plugin {
         public int format;
         public int status;
         public int identity;
-        public int client;
+        public long client;
         public int flags;
         public int alpha;
         public int invalidate;
@@ -891,14 +915,16 @@ public class SurfaceFlingerPlugin extends Plugin {
         public int available = -1;
         public int head = -1;
         public Region regTrans = new Region("transparentRegion");
+        public Region surfaceDamage = new Region("surfaceDamageRegion");
         public Region regTransScreen = new Region("transparentRegionScreen");
         public Region regVisScreen = new Region("visibleRegionScreen");
         public Vector<Region> regExtra = new Vector<Region>();
         public Anchor anchor;
+        public int opaque;
     }
 
     static class Buffer {
-        public int ptr;
+        public long ptr;
         public int w, h, stride;
         public int format, usage;
         public float size;

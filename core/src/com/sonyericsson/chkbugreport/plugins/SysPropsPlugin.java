@@ -27,14 +27,17 @@ import com.sonyericsson.chkbugreport.BugReportModule;
 import com.sonyericsson.chkbugreport.Plugin;
 import com.sonyericsson.chkbugreport.Module;
 import com.sonyericsson.chkbugreport.Section;
+import com.sonyericsson.chkbugreport.util.Util;
 
 public class SysPropsPlugin extends Plugin {
 
     private static final String TAG = "[SysPropsPlugin]";
 
     private static final Pattern UPTIME_PATTERN = Pattern.compile("up time: (.*), idle time: (.*), sleep time: (.*)");
+    private static final Pattern UPTIME_PATTERN2 = Pattern.compile(" *\\d{2}:\\d{2}:\\d{2} +up +([^,]+), +\\d+ users?, +load average: +([0-9\\.]+), +([0-9\\.]+), ([0-9\\.]+)");
     private static final Pattern TIME_PATTERN_1 = Pattern.compile("(.*) days, (.*):(.*):(.*)");
     private static final Pattern TIME_PATTERN_2 = Pattern.compile("(.*):(.*):(.*)");
+    private static final Pattern TIME_PATTERN_3 = Pattern.compile("(\\d+ days?, )?(\\d+ min|\\d{2}:\\d{2})");
 
     private HashMap<String, String> mMap = new HashMap<String, String>();
 
@@ -84,14 +87,20 @@ public class SysPropsPlugin extends Plugin {
 
         String line = sec.getLine(0);
         Matcher m = UPTIME_PATTERN.matcher(line);
-        if (!m.matches()) {
-            br.printErr(4, TAG + "Cannot parse uptime: " + line);
+        if (m.matches()) {
+            mUpTime = parseTime(br, m.group(1));
+            mIdleTime = parseTime(br, m.group(2));
+            mSleepTime = parseTime(br, m.group(3));
+            br.setUptime(mUpTime, 100);
             return;
         }
-        mUpTime = parseTime(br, m.group(1));
-        mIdleTime = parseTime(br, m.group(2));
-        mSleepTime = parseTime(br, m.group(3));
-        br.setUptime(mUpTime, 100);
+
+        m = UPTIME_PATTERN2.matcher(line);
+        if (m.matches()) {
+            mUpTime = parseTime(br, m.group(1));
+            return;
+        }
+        br.printErr(4, TAG + "Cannot parse uptime: " + line);
     }
 
     private long parseTime(BugReportModule br, String str) {
@@ -110,6 +119,30 @@ public class SysPropsPlugin extends Plugin {
             long seconds = Long.parseLong(m.group(3));
             return (hours * 60 + minutes) * 60 + seconds;
         }
+
+        m = TIME_PATTERN_3.matcher(str);
+        if (m.matches()) {
+            System.err.println(">>>[" + m.group(1) + "][" + m.group(2));
+            long days = 0;
+            if (m.group(1) != null) {
+                days = Long.parseLong(m.group(1));
+            }
+
+            long hours = 0;
+            long minutes = 0;
+            long seconds = 0;
+
+            String time = m.group(2);
+            if (time.indexOf(" min") > 0) {
+                minutes = Long.parseLong(Util.extract(time, "", " "));
+            } else {
+                hours = Util.parseInt(time, 0, 2, 0);
+                minutes = Util.parseInt(time, 3, 5, 0);
+                seconds = Util.parseInt(time, 6, 8, 0);
+            }
+            return ((((days *12) + hours) * 60) + minutes) * 60 + seconds;
+        }
+
         br.printErr(4, TAG + "Cannot parse time string: " + str);
         return 0;
     }
