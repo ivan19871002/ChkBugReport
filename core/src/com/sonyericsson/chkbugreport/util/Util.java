@@ -323,7 +323,29 @@ public final class Util {
      * @throws NumberFormatException if the number is invalid
      */
     public static int parseHex(String s, int from, int to, int def) {
-        return parseHex(s.substring(from, to), def);
+        return (int) parseHex(s.substring(from, to), def);
+    }
+
+    /**
+     * Parse a substring as hexadecimal integer, stripping it first.
+     * @param s The string to parse
+     * @param from The first index of the substring
+     * @param to The last+1 index of the substring
+     * @param def The default value if the provided string is null or empty
+     * @return The parsed integer value
+     * @throws NumberFormatException if the number is invalid
+     */
+    public static long parseHexLong(String s, int from, int to, int def) {
+        if (s == null) return def;
+        s = strip(s).toLowerCase();
+        if (s.length() == 0) return def;
+        if (s.startsWith("0x")) {
+            s = s.substring(2);
+        }
+        if (s.startsWith("#")) {
+            s = s.substring(1);
+        }
+        return Long.parseLong(s, 16);
     }
 
     /**
