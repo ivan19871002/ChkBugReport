@@ -84,6 +84,7 @@ public final class HtmlUtil {
     public static void writeHTMLHeader(PrintStream out, String title, String pathToData) {
         out.println("<html>");
         out.println("<head>");
+        out.println("  <meta charset=\"utf-8\">");
         out.println("  <title>" + title + "</title>");
         out.println("  <link rel=\"stylesheet\" type=\"text/css\" href=\"" + pathToData + "themes/blue/style.css\"/>");
         out.println("  <link rel=\"stylesheet\" type=\"text/css\" href=\"" + pathToData + "jquery.treeTable.css\"/>");
@@ -102,6 +103,7 @@ public final class HtmlUtil {
     public static void writeHTMLHeaderLite(PrintStream out, String title) {
         out.println("<html>");
         out.println("<head>");
+        out.println("  <meta charset=\"utf-8\">");
         out.println("  <title>" + title + "</title>");
         out.println("</head>");
     }
