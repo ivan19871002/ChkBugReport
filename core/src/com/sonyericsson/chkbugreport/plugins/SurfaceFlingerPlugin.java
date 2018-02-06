@@ -182,7 +182,7 @@ public class SurfaceFlingerPlugin extends Plugin {
             String vis = "vis";
             if ((0 != (l.flags & FLAG_HIDDEN))) {
                 vis = "gone";
-            } else if (l.alpha == 0) {
+            } else if (Math.abs(l.alpha) < 0.001) {
                 vis = "invis";
             }
             String hint = "|";
@@ -775,7 +775,7 @@ public class SurfaceFlingerPlugin extends Plugin {
             } else if ("invalidate".equals(key)) {
                 layer.invalidate = tok.nextInt();
             } else if ("alpha".equals(key)) {
-                layer.alpha = tok.nextInt();
+                layer.alpha = tok.nextFloat();
             } else if ("flags".equals(key)) {
                 layer.flags = tok.nextInt();
             } else if ("tr".equals(key)) {
@@ -815,7 +815,7 @@ public class SurfaceFlingerPlugin extends Plugin {
             } else if ("activeBuffer".equals(key)) {
                 tok.nextToken(); // eg: 960x 854: 960
                 tok.nextToken(); // eg: 2
-            } else if ("crop".equals(key)) {
+            } else if ("crop".equals(key) || "finalCrop".equals(key)) {
                 tok.nextToken(); // x
                 tok.nextToken(); // y
                 tok.nextToken(); // w
@@ -901,7 +901,7 @@ public class SurfaceFlingerPlugin extends Plugin {
         public int identity;
         public long client;
         public int flags;
-        public int alpha;
+        public float alpha;
         public int invalidate;
         public int needsDithering;
         public int needsBlending;
