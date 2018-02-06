@@ -118,9 +118,11 @@ import java.util.regex.Pattern;
                 new Span(stName).addStyle("stacktrace-name-info")
                     .add(
                         " (tid=" + stack.getTid() +
-                        " pid=" + stack.getProperty("sysTid") +
-                        " prio=" + stack.getPrio() + " ")
+                        " sysTid=" + stack.getProperty("sysTid") +
+                        " prio=" + stack.getPrio() + " " +
+                        " nice=")
                     .add(new Img(nice))
+                    .add(" sched=")
                     .add(new Img(sched))
                     .add(" state=" + stack.getState())
                     .add(waiting)
