@@ -824,6 +824,10 @@ public class SurfaceFlingerPlugin extends Plugin {
                 tok.nextToken(); // skip
             } else if ("isOpaque".equals(key)) {
                 layer.opaque = tok.nextInt();
+            } else if ("queued-frames".equals(key)) {
+                tok.nextToken(); // skip
+            } else if ("mRefreshPending".equals(key)) {
+                tok.nextToken(); // skip
             } else {
                 if (!mUnknownAttrs.contains(key)) {
                     mUnknownAttrs.add(key);
