@@ -235,18 +235,19 @@ public class BugReportModule extends Module {
                 }
             }
 
+            // Skip new section duration log like this:
+            // ------ 0.092s was the duration of 'DUMPSYS CPUINFO' ------, or this:
+            // --------- 0.008s was the duration of dumpsys SurfaceFlinger
+            if (buff.startsWith("----") && buff.contains(" was the duration of ")) {
+                continue;
+            }
+
             // Parse sections and sub-sections
             if (buff.startsWith("------ ")) {
                 // build up file name
                 int e = buff.indexOf(" ------");
                 if (e >= 0) {
                     String sectionName = buff.substring(7, e);
-
-                    // Skip new section duration log like this:
-                    // ------ 0.092s was the duration of 'DUMPSYS CPUINFO' ------
-                    if (sectionName.contains(" was the duration of")) {
-                        continue;
-                    }
 
                     // Workaround for SMAP spamming
                     boolean newSection = true;
@@ -281,6 +282,14 @@ public class BugReportModule extends Module {
                     if ("DUMP OF SERVICE activity:".equals(sectionName)) {
                         // skip over this name, and use the next line as title, the provider thingy
                         sectionName = br.readLine();
+                    }
+
+                    // Workaround some false positive "section dividers" in dumpsys SurfaceFlinger
+                    // output. Currently we do extra check of next line to match certain pattern.
+                    if (!(sectionName.startsWith("DUMP OF ")
+                          || sectionName.startsWith("ACTIVITY MANAGER ")
+                          || sectionName.startsWith("WINDOW MANAGER "))) {
+                        sectionName = null;
                     }
                 }
                 if (sectionName != null) {
