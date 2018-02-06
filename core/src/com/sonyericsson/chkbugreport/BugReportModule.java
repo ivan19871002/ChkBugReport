@@ -242,6 +242,12 @@ public class BugReportModule extends Module {
                 if (e >= 0) {
                     String sectionName = buff.substring(7, e);
 
+                    // Skip new section duration log like this:
+                    // ------ 0.092s was the duration of 'DUMPSYS CPUINFO' ------
+                    if (sectionName.contains(" was the duration of")) {
+                        continue;
+                    }
+
                     // Workaround for SMAP spamming
                     boolean newSection = true;
                     if (curSection != null && curSection.getName().equals("SMAPS OF ALL PROCESSES")) {
