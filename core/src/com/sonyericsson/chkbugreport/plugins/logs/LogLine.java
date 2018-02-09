@@ -39,10 +39,6 @@ import java.util.regex.Pattern;
 public class LogLine extends DocNode {
 
     private static final Pattern TS = Pattern.compile("\\[ *([0-9]+)\\.([0-9]+)(@[0-9]+)?\\].*");
-    private static final Pattern LOGCAT_PREFIX = Pattern.compile(
-            "([0-9]{2}-[0-9]{2}) +([0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}) +([0-9]+) +([0-9]+) +(\\w) +([^:]+):");
-    private static final Pattern LOGCAT_PREFIX2 = Pattern.compile(
-            "([0-9]{2}-[0-9]{2}) +([0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{3}) +(\\w+) +([0-9]+) +([0-9]+) +(\\w) +([^:]+):");
 
     public static final int FMT_UNKNOWN = 0;
     public static final int FMT_STD     = 1;
@@ -56,7 +52,6 @@ public class LogLine extends DocNode {
     public long ts;
     public long realTs;
     public long id;
-    public String user;
     public String tag;
     public String msg;
     public int pid = 0;
@@ -112,7 +107,6 @@ public class LogLine extends DocNode {
         ts = orig.ts;
         ok = orig.ok;
         id = orig.id;
-        user = orig.user;
         tag = orig.tag;
         msg = orig.msg;
         level = orig.level;
@@ -203,49 +197,48 @@ public class LogLine extends DocNode {
      * Parse a log line in the standard bugreport format
      */
     private boolean parseFmtStd(BugReportModule br, String line) {
-        int start = -1;
-        int end = -1;
-        int idxUser = -1;
-        int idxTag;
-        int idxLevel;
-        int idxPid;
-
-        Matcher matcher = LOGCAT_PREFIX2.matcher(line);
-        if (matcher.find()) {
-            idxUser = 3;
-            idxPid = 4;
-            idxLevel = 6;
-            idxTag = 7;
-        } else {
-            matcher = LOGCAT_PREFIX.matcher(line);
-            if (matcher.find()) {
-                idxPid = 3;
-                idxLevel = 5;
-                idxTag = 6;
-            } else {
-                return false;
-            }
-        }
-
-        if (idxUser > 0) {
-            user = matcher.group(idxUser);
-        }
-
-        try {
-            pid = Integer.valueOf(matcher.group(idxPid));
-            start = matcher.start(idxPid);
-            end = matcher.end(idxPid);
-        } catch (NumberFormatException e) {
-        }
-
-        tag = matcher.group(idxTag).trim();
-        level = matcher.group(idxLevel).charAt(0);
-        msg = line.substring(matcher.group().length()).trim();
+        int tagEnd = line.indexOf(':', 18);
+        if (tagEnd < 20) return false; // this is weird... abort
+        int p0 = tagEnd - 7;
+        int p1 = tagEnd - 1;
+        char c = line.charAt(p0);
+        if (c != '(') return false; // not this format
+        c = line.charAt(p1);
+        if (c != ')') return false; // not this format
+        if (line.charAt(20) != '/') return false; // strange log format
+        c = line.charAt(0);
+        if (c < '0' && c > '9') return false; // strange log format
 
         parseTS(line);
-        if (pid > 0) {
-            addDecorator(new PidDecorator(start, end, br, pid));
+
+        // Read log level
+        level = line.charAt(19);
+
+        // Read pid
+        int p = p0;
+        do {
+            p++;
+        } while (p < line.length() && line.charAt(p) == ' ');
+        try {
+            pid = Integer.parseInt(line.substring(p, p1));
+            if (pid > 0) {
+                addDecorator(new PidDecorator(p, p1, br, pid));
+            }
+        } catch(NumberFormatException t) {
+            return false; // strange pid
         }
+
+        // Read tag
+        int tagS = 21;
+        int tagE = p0;
+        if (tagE < 0) return false;
+        while (tagE > tagS && line.charAt(tagE-1) == ' ') {
+            tagE--;
+        }
+        tag = line.substring(tagS, tagE);
+
+        // Read message
+        msg = line.substring(p1 + 3);
 
         finishParse();
         fmt = FMT_STD;
