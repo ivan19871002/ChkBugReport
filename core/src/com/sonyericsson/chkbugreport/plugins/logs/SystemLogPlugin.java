@@ -167,6 +167,10 @@ public class SystemLogPlugin extends LogPlugin {
             analyzeGC(sl, i, br, s);
         }
 
+        if (sl.tag.startsWith("zygote") && sl.msg.contains(" GC freed ")) {
+            analyzeNewGC(sl, i, br, s);
+        }
+
         if (sl.tag.equals("WindowManager") && sl.level == 'I') {
             String key = "Setting rotation to ";
             if (sl.msg.startsWith(key)) {
@@ -464,6 +468,54 @@ public class SystemLogPlugin extends LogPlugin {
             end++;
         }
         br.addBug(bug);
+    }
+
+    // Input string format: aaaKB, bbbMB, etc. Output unit: KB
+    private int parseGCValue(String v) {
+        int multiplier = 1;
+        char unit = v.charAt(v.length() - 1);
+
+        switch (unit) {
+            case 'K':
+                break;
+            case 'M':
+                multiplier = 1024;
+                break;
+            case 'G':
+                multiplier = 1024 * 1024;
+                break;
+            default:
+                // FIXME: handle this?
+                break;
+        }
+
+        int out = Integer.parseInt(v.substring(0, v.length() - 1));
+        return out * multiplier;
+    }
+
+    // Parse new format of GC logs like this:
+    // zygote64: Explicit concurrent copying GC freed 11108(1025KB) AllocSpace objects, 0(0B) LOS objects, 49% free, 2MB/4MB, paused 1.132ms total 23.371ms
+    private void analyzeNewGC(LogLine sl, int i, BugReportModule br, Section s) {
+        String line = sl.line;
+        int idxHeapSize = line.indexOf("% free, ");
+        if (idxHeapSize < 0) return;
+        idxHeapSize += 8;
+        int idxHeapSizeEnd = line.indexOf('B', idxHeapSize);
+        if (idxHeapSizeEnd < 0) return;
+
+        int idxTotalSize = idxHeapSizeEnd + 2;
+        int idxTotalSizeEnd = line.indexOf('B', idxTotalSize);
+        if (idxTotalSizeEnd < 0) return;
+
+        try {
+            int memHeapSize = parseGCValue(line.substring(idxHeapSize, idxHeapSizeEnd));
+            int memTotalSize = parseGCValue(line.substring(idxTotalSize, idxTotalSizeEnd));
+
+            GCRecord gc = new GCRecord(sl.ts, sl.pid, memHeapSize, memTotalSize, -1, -1);
+            addGCRecord(sl.pid, gc);
+        } catch (NumberFormatException e) {
+            // ignore
+        }
     }
 
     private void analyzeGC(LogLine sl, int i, BugReportModule br, Section s) {
